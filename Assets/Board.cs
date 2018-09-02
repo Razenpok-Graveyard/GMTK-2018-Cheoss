@@ -1,10 +1,13 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Figures;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
+using Random = UnityEngine.Random;
 
 public class Board : MonoBehaviour
 {
@@ -18,28 +21,38 @@ public class Board : MonoBehaviour
     [SerializeField] private ChessFigure queen;
     [SerializeField] private ChessFigure king;
 
-    [SerializeField] private Text gameOverText;
-    [SerializeField] private Button gameOverButton;
+    [SerializeField] private MainMenu mainMenu;
+    [SerializeField] private GameObject figureContainer;
 
     private bool isGameOverYet;
 
     private readonly BoardCell[,] cells = new BoardCell[Height, Width];
-    private readonly Player firstPlayer = new Player { IsFirst = true };
+    private readonly Player firstPlayer = new Player { IsFirst = true, IsBot = true };
     private readonly Player secondPlayer = new Player { IsBot = true };
 
     private void Start()
     {
         ResetPositions();
-        firstPlayer.God = new Khorne();
-        secondPlayer.God = new Nurgle();
-        SpawnFigures();
-        firstPlayer.IsActive = true;
-        secondPlayer.IsActive = false;
+        mainMenu.StartPressed += MainMenuStartPressed;
+        mainMenu.FadedOut += MainMenuFadedOut;
+    }
+
+    private void MainMenuStartPressed()
+    {
+        firstPlayer.God = mainMenu.FirstPlayerSettings.SelectedGod;
+        firstPlayer.IsBot = mainMenu.FirstPlayerSettings.IsBot;
+        secondPlayer.God = mainMenu.SecondPlayerSettings.SelectedGod;
+        secondPlayer.IsBot = mainMenu.SecondPlayerSettings.IsBot;
+        ResetBoard();
+    }
+
+    private void MainMenuFadedOut()
+    {
+        StartCoroutine(StartNextTurn(firstPlayer, true));
     }
 
     private void ResetBoard()
     {
-        gameOverText.gameObject.SetActive(false);
         isGameOverYet = false;
         firstPlayer.ClearFigures();
         secondPlayer.ClearFigures();
@@ -79,7 +92,7 @@ public class Board : MonoBehaviour
     private void Spawn(ChessFigure figure, int row, int column, Player player)
     {
         var cell = cells[column, row];
-        var go = Instantiate(figure, transform.parent);
+        var go = Instantiate(figure, figureContainer.transform);
         cell.Figure = go;
         player.AddActiveFigure(go);
         go.Player = player;
@@ -93,7 +106,7 @@ public class Board : MonoBehaviour
             .FirstOrDefault(cell => cell.IsMouseOver);
         if (targetCell == null || targetCell == figure.Cell || !figure.MovementCells.Contains(targetCell))
         {
-            EnableTeam(figure);
+            figure.Player.IsActive = true;
             return;
         }
 
@@ -111,9 +124,6 @@ public class Board : MonoBehaviour
             if (targetFigure is King)
             {
                 isGameOverYet = true;
-                gameOverText.gameObject.SetActive(true);
-                gameOverText.text = targetFigure.Player.IsBot ? "WOW!" : "SASAI";
-                gameOverButton.onClick.AddListener(ResetBoard);
                 SfxPlayer.PlayGameOver();
             }
             else if (targetFigure.Player.IsBot)
@@ -186,44 +196,34 @@ public class Board : MonoBehaviour
     private void Figure_DragStarted(ChessFigure figure)
     {
         SfxPlayer.PlayDragStarted();
-        DisableTeam(figure);
+        figure.Player.IsActive = false;
     }
 
-    private static void EnableTeam(Player player)
+    private IEnumerator StartNextTurn(Player player, bool isFirstTurn = false)
     {
-        foreach (var figure in player.ActiveFigures)
-        {
-            figure.IsInteractable = true;
-        }
-    }
-
-    private static void DisableTeam(Player player)
-    {
-        foreach (var figure in player.ActiveFigures)
-        {
-            figure.IsInteractable = false;
-        }
-    }
-
-    private IEnumerator StartNextTurn(Player player)
-    {
+        player.IsActive = false;
+        OppositePlayer(player).IsActive = false;
         while (true)
         {
             if (isGameOverYet)
             {
-                player.IsActive = false;
-                OppositePlayer(player).IsActive = false;
+                yield return new WaitForSeconds(2f);
+                mainMenu.Show();
                 yield break;
             }
-            yield return new WaitForSeconds(0.6f);
-            yield return StartCoroutine(ShuffleFigures(OppositePlayer(player)));
-            player.IsActive = true;
-            OppositePlayer(player).IsActive = false;
+
+            if (!isFirstTurn)
+            {
+                yield return new WaitForSeconds(0.6f);
+                yield return StartCoroutine(ShuffleFigures(OppositePlayer(player)));
+            }
             if (!player.IsBot) break;
             yield return StartCoroutine(FakeThinking(player));
             yield return StartCoroutine(MakeBotTurn(player));
             player = OppositePlayer(player);
         }
+
+        player.IsActive = true;
     }
 
     private static IEnumerator FakeThinking(Player player)
@@ -240,7 +240,6 @@ public class Board : MonoBehaviour
 
     private IEnumerator MakeBotTurn(Player player)
     {
-        player.IsActive = false;
         var attackingFigures = player.ActiveFigures
             .Where(f => f.MovementCells.Any(c => c.HasFigure))
             .ToList();
@@ -386,6 +385,23 @@ public class Player
 public abstract class God
 {
     public abstract Color Color { get; }
+
+    public static implicit operator God(GodName name)
+    {
+        switch (name)
+        {
+            case GodName.Khorne:
+                return new Khorne();
+            case GodName.Tzeentch:
+                return new Tzeentch();
+            case GodName.Nurgle:
+                return new Nurgle();
+            case GodName.Slaanesh:
+                return new Slaanesh();
+            default:
+                throw new ArgumentOutOfRangeException("name", name, null);
+        }
+    }
 }
 
 public class Khorne : God
@@ -404,7 +420,7 @@ public class Nurgle : God
     }
 }
 
-public class Tzeench : God
+public class Tzeentch : God
 {
     public override Color Color
     {
