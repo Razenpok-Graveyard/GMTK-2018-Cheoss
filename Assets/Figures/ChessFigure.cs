@@ -33,7 +33,7 @@ namespace Figures
             set { Image.raycastTarget = value; }
         }
 
-        private Image Image
+        protected Image Image
         {
             get { return GetComponent<Image>(); }
         }
@@ -126,7 +126,7 @@ namespace Figures
             }
 
             isDragged = true;
-            transform.SetSiblingIndex(transform.childCount - 1);
+            transform.SetSiblingIndex(transform.parent.childCount - 1);
             if (DragStarted != null) DragStarted();
         }
 

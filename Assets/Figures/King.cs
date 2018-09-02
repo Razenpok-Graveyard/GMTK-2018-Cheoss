@@ -1,11 +1,19 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Figures
 {
     public class King : ChessFigure
     {
+        [SerializeField] private Image thinking;
+
+        public Image Thinking
+        {
+            get { return thinking; }
+        }
+
         public override IEnumerable<BoardCell> MovementCells
         {
             get

@@ -20,7 +20,6 @@ public class Board : MonoBehaviour
 
     [SerializeField] private Text gameOverText;
     [SerializeField] private Button gameOverButton;
-    [SerializeField] private Image thinking;
 
     private bool isGameOverYet;
 
@@ -195,16 +194,17 @@ public class Board : MonoBehaviour
             player.IsActive = true;
             OppositePlayer(player).IsActive = false;
             if (!player.IsBot) break;
-            yield return StartCoroutine(FakeThinking());
-            MakeBotTurn(player);
+            yield return StartCoroutine(FakeThinking(player));
+            yield return StartCoroutine(MakeBotTurn(player));
             player = OppositePlayer(player);
         }
     }
 
-    private IEnumerator FakeThinking()
+    private static IEnumerator FakeThinking(Player player)
     {
+        var thinking = player.King.Thinking;
         thinking.gameObject.SetActive(true);
-        foreach (var f in Easing.OutSquare(0, 1, 2 + Random.value))
+        foreach (var f in Easing.OutSquare(1, 0, 2 + Random.value))
         {
             thinking.fillAmount = f;
             yield return null;
@@ -212,7 +212,7 @@ public class Board : MonoBehaviour
         thinking.gameObject.SetActive(false);
     }
 
-    private void MakeBotTurn(Player player)
+    private IEnumerator MakeBotTurn(Player player)
     {
         player.IsActive = false;
         var attackingFigures = player.ActiveFigures
@@ -230,6 +230,7 @@ public class Board : MonoBehaviour
                 .Where(c => c.HasFigure)
                 .OrderByDescending(c => c.Figure.Value)
                 .First();
+            yield return StartCoroutine(AnimateMovement(mostValuableAttacker, mostValuableTarget));
             Move(mostValuableAttacker, mostValuableTarget);
         }
         else
@@ -242,8 +243,31 @@ public class Board : MonoBehaviour
             var moves = figure.MovementCells.ToList();
             Shuffle(moves);
             var targetCell = moves.First();
+            yield return StartCoroutine(AnimateMovement(figure, targetCell));
             Move(figure, targetCell);
         }
+    }
+
+    private static IEnumerator AnimateMovement(ChessFigure figure, BoardCell targetCell)
+    {
+        var currentCell = figure.Cell;
+        figure.Cell = null;
+        while (Distance(figure, targetCell) > 0.6f)
+        {
+            figure.transform.position = Vector3.MoveTowards(
+                figure.transform.position,
+                targetCell.transform.position,
+                0.5f
+            );
+            yield return null;
+        }
+
+        figure.Cell = currentCell;
+    }
+
+    private static float Distance(ChessFigure figure, BoardCell cell)
+    {
+        return Vector3.Distance(figure.transform.position, cell.transform.position);
     }
 
     private Player OppositePlayer(Player player)
@@ -291,6 +315,11 @@ public class Player
     public IEnumerable<ChessFigure> ActiveFigures
     {
         get { return activeFigures; }
+    }
+
+    public King King
+    {
+        get { return activeFigures.OfType<King>().First(); }
     }
 
     public bool IsActive
