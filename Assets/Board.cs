@@ -214,6 +214,7 @@ public class Board : MonoBehaviour
 
     private void MakeBotTurn(Player player)
     {
+        player.IsActive = false;
         var attackingFigures = player.ActiveFigures
             .Where(f => f.MovementCells.Any(c => c.HasFigure))
             .ToList();
