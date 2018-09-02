@@ -30,15 +30,24 @@ public class Board : MonoBehaviour
     private void Start()
     {
         ResetPositions();
+        firstPlayer.God = new Khorne();
+        secondPlayer.God = new Nurgle();
         SpawnFigures();
         firstPlayer.IsActive = true;
         secondPlayer.IsActive = false;
     }
 
+    private void ResetBoard()
+    {
+        gameOverText.gameObject.SetActive(false);
+        isGameOverYet = false;
+        firstPlayer.ClearFigures();
+        secondPlayer.ClearFigures();
+        SpawnFigures();
+    }
+
     private void SpawnFigures()
     {
-        firstPlayer.God = new Khorne();
-        secondPlayer.God = new Nurgle();
         SpawnRoyalRow(0, firstPlayer);
         SpawnPawnRow(1, firstPlayer);
         SpawnPawnRow(6, secondPlayer);
@@ -64,6 +73,8 @@ public class Board : MonoBehaviour
             Spawn(pawn, row, i, player);
         }
     }
+
+    private SfxPlayer SfxPlayer { get { return FindObjectOfType<SfxPlayer>(); } }
 
     private void Spawn(ChessFigure figure, int row, int column, Player player)
     {
@@ -102,18 +113,32 @@ public class Board : MonoBehaviour
                 isGameOverYet = true;
                 gameOverText.gameObject.SetActive(true);
                 gameOverText.text = targetFigure.Player.IsBot ? "WOW!" : "SASAI";
-                gameOverButton.onClick.AddListener(() => SceneManager.LoadScene(0));
+                gameOverButton.onClick.AddListener(ResetBoard);
+                SfxPlayer.PlayGameOver();
+            }
+            else if (targetFigure.Player.IsBot)
+            {
+                SfxPlayer.PlayPlayerKill();
+            }
+            else
+            {
+                SfxPlayer.PlayBotKill();
             }
             Destroy(targetFigure.gameObject);
+        }
+        else
+        {
+            SfxPlayer.PlayDragStopped();
         }
         targetCell.Figure = figure;
     }
 
-    private static IEnumerator ShuffleFigures(Player player)
+    private IEnumerator ShuffleFigures(Player player)
     {
+        SfxPlayer.PlayWarp();
         var teamFigures = player.ActiveFigures.Where(f => !(f is King)).ToList();
         var teamCells = teamFigures.Select(f => f.Cell).ToList();
-        foreach (var f in Easing.Linear(0, 1, 0.25f))
+        foreach (var f in Easing.Linear(0, 1, 0.3f))
         {
             foreach (var figure in teamFigures)
             {
@@ -131,7 +156,7 @@ public class Board : MonoBehaviour
             teamCells[i].Figure = teamFigures[i];
         }
 
-        foreach (var f in Easing.Linear(0, 1, 0.25f))
+        foreach (var f in Easing.Linear(0, 1, 0.3f))
         {
             foreach (var figure in teamFigures)
             {
@@ -158,8 +183,9 @@ public class Board : MonoBehaviour
         }
     }
 
-    private static void Figure_DragStarted(ChessFigure figure)
+    private void Figure_DragStarted(ChessFigure figure)
     {
+        SfxPlayer.PlayDragStarted();
         DisableTeam(figure);
     }
 
@@ -189,7 +215,7 @@ public class Board : MonoBehaviour
                 OppositePlayer(player).IsActive = false;
                 yield break;
             }
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(0.6f);
             yield return StartCoroutine(ShuffleFigures(OppositePlayer(player)));
             player.IsActive = true;
             OppositePlayer(player).IsActive = false;
@@ -248,20 +274,19 @@ public class Board : MonoBehaviour
         }
     }
 
-    private static IEnumerator AnimateMovement(ChessFigure figure, BoardCell targetCell)
+    private IEnumerator AnimateMovement(ChessFigure figure, BoardCell targetCell)
     {
         var currentCell = figure.Cell;
         figure.Cell = null;
-        while (Distance(figure, targetCell) > 0.6f)
+        while (Distance(figure, targetCell) > 0.4f)
         {
             figure.transform.position = Vector3.MoveTowards(
                 figure.transform.position,
                 targetCell.transform.position,
-                0.5f
+                0.3f
             );
             yield return null;
         }
-
         figure.Cell = currentCell;
     }
 
@@ -345,6 +370,16 @@ public class Player
     {
         activeFigures.Remove(figure);
         deadFigures.Add(figure);
+    }
+
+    public void ClearFigures()
+    {
+        foreach (var figure in activeFigures)
+        {
+            Object.Destroy(figure.gameObject);
+        }
+        activeFigures.Clear();
+        deadFigures.Clear();
     }
 }
 
