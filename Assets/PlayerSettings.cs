@@ -7,6 +7,7 @@ public class PlayerSettings : MonoBehaviour
     [SerializeField] private ToggleGroup toggleGroup;
     [SerializeField] private Toggle aiToggle;
     [SerializeField] private Text godDescription;
+    [SerializeField] private Slider godActivity;
 
     public GodName SelectedGod
     {
@@ -16,6 +17,11 @@ public class PlayerSettings : MonoBehaviour
     public bool IsBot
     {
         get { return aiToggle.isOn; }
+    }
+
+    public float Activity
+    {
+        get { return godActivity.value; }
     }
 
     private void Update()

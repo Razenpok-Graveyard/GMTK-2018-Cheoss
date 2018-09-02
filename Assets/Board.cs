@@ -44,8 +44,10 @@ public class Board : MonoBehaviour
     {
         firstPlayer.God = mainMenu.FirstPlayerSettings.SelectedGod;
         firstPlayer.IsBot = mainMenu.FirstPlayerSettings.IsBot;
+        firstPlayer.God.Activity = mainMenu.FirstPlayerSettings.Activity;
         secondPlayer.God = mainMenu.SecondPlayerSettings.SelectedGod;
         secondPlayer.IsBot = mainMenu.SecondPlayerSettings.IsBot;
+        secondPlayer.God.Activity = mainMenu.SecondPlayerSettings.Activity;
         ResetBoard();
     }
 
@@ -443,6 +445,8 @@ public abstract class God
 
     public abstract Color Color { get; }
 
+    public float Activity { get; set; }
+
     public static implicit operator God(GodName name)
     {
         switch (name)
@@ -462,8 +466,7 @@ public abstract class God
 
     public IEnumerator ApplyEffect(Board board, IEnumerable<ChessFigure> figures, bool isEnemy)
     {
-        var chance = ProcChance(isEnemy);
-        if (UnityEngine.Random.value > chance)
+        if (Random.NextDouble() > ProcChance(isEnemy) * Activity)
         {
             yield break;
         }
@@ -528,7 +531,7 @@ public class Khorne : God
 
     protected override float ProcChance(bool isEnemy)
     {
-        return isEnemy ? 0.4f : 0.1f;
+        return isEnemy ? 0.5f : 0.2f;
     }
 
     public override Sprite Sigil(Board board)
@@ -569,7 +572,7 @@ public class Nurgle : God
 
     protected override float ProcChance(bool isEnemy)
     {
-        return isEnemy ? 0.4f : 0.1f;
+        return isEnemy ? 0.5f : 0.2f;
     }
 
     public override Sprite Sigil(Board board)
@@ -606,7 +609,7 @@ public class Tzeentch : God
 
     protected override float ProcChance(bool isEnemy)
     {
-        return isEnemy ? 0.4f : 0.1f;
+        return isEnemy ? 0.5f : 0.2f;
     }
 
     public override Sprite Sigil(Board board)
@@ -647,7 +650,7 @@ public class Slaanesh : God
 
     protected override float ProcChance(bool isEnemy)
     {
-        return isEnemy ? 0.1f : 0.4f;
+        return isEnemy ? 0.2f : 0.5f;
     }
 
     public override Sprite Sigil(Board board)
