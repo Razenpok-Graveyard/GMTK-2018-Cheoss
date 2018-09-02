@@ -1,4 +1,5 @@
-﻿using Figures;
+﻿using System.Collections;
+using Figures;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -10,6 +11,7 @@ public class BoardCell :
 {
     [SerializeField] private Image image;
     [SerializeField] private ChessFigure figure;
+    [SerializeField] private Image sigil;
 
     public Vector2Int Position { get; set; }
 
@@ -49,23 +51,13 @@ public class BoardCell :
     {
         if (AffectingGod != null)
         {
-            if (IsDark)
-            {
-                image.color = Color.gray * AffectingGod.Color;
-            }
-            else
-            {
-                float h, s, v;
-                Color.RGBToHSV(AffectingGod.Color, out h, out s, out v);
-                s *= 0.75f;
-                image.color = Color.HSVToRGB(h, s, v);
-            }
+            image.color = AffectingGod.CellColor(this);
             return;
         }
         image.color = IsDark ? Color.black : Color.white;
     }
 
-    private bool IsDark
+    public bool IsDark
     {
         get
         {
@@ -81,5 +73,26 @@ public class BoardCell :
     public void OnPointerExit(PointerEventData eventData)
     {
         IsMouseOver = false;
+    }
+
+    public void ShowSigil(Sprite sprite)
+    {
+        StartCoroutine(ShowSigilAndFadeOut(sprite));
+    }
+
+    private IEnumerator ShowSigilAndFadeOut(Sprite sprite)
+    {
+        sigil.sprite = sprite;
+        var color = sigil.color;
+        color.a = 1f;
+        sigil.color = color;
+        yield return new WaitForSeconds(1f);
+        foreach (var f in Easing.Linear(1, 0, 1f))
+        {
+            color = sigil.color;
+            color.a = f;
+            sigil.color = color;
+            yield return null;
+        }
     }
 }

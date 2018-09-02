@@ -6,6 +6,7 @@ public class PlayerSettings : MonoBehaviour
 {
     [SerializeField] private ToggleGroup toggleGroup;
     [SerializeField] private Toggle aiToggle;
+    [SerializeField] private Text godDescription;
 
     public GodName SelectedGod
     {
@@ -15,5 +16,10 @@ public class PlayerSettings : MonoBehaviour
     public bool IsBot
     {
         get { return aiToggle.isOn; }
+    }
+
+    private void Update()
+    {
+        godDescription.text = ((God) SelectedGod).Description;
     }
 }

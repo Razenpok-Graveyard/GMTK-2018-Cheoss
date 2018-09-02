@@ -8,6 +8,7 @@ public class SfxPlayer: MonoBehaviour
     [SerializeField] private AudioSource botKill;
     [SerializeField] private AudioSource warp;
     [SerializeField] private AudioSource gameOver;
+    [SerializeField] private AudioSource godEffect;
 
     public void PlayDragStarted()
     {
@@ -37,5 +38,10 @@ public class SfxPlayer: MonoBehaviour
     public void PlayGameOver()
     {
         gameOver.Play();
+    }
+
+    public void PlayGodEffect()
+    {
+        godEffect.Play();
     }
 }

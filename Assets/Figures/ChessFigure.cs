@@ -45,6 +45,7 @@ namespace Figures
 
         private void Update()
         {
+            Image.enabled = true;
             if (Cell != null)
             {
                 transform.position = Cell.transform.position;

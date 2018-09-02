@@ -4,22 +4,25 @@ using System.Collections.Generic;
 using System.Linq;
 using Figures;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
-using Random = UnityEngine.Random;
 
 public class Board : MonoBehaviour
 {
     private const int Width = 8;
     private const int Height = 8;
 
-    [SerializeField] private ChessFigure pawn;
-    [SerializeField] private ChessFigure rook;
-    [SerializeField] private ChessFigure knight;
-    [SerializeField] private ChessFigure bishop;
-    [SerializeField] private ChessFigure queen;
-    [SerializeField] private ChessFigure king;
+    [SerializeField] public ChessFigure Pawn;
+    [SerializeField] public ChessFigure Rook;
+    [SerializeField] public ChessFigure Knight;
+    [SerializeField] public ChessFigure Bishop;
+    [SerializeField] public ChessFigure Queen;
+    [SerializeField] public ChessFigure King;
+
+    [SerializeField] public Sprite Khorne;
+    [SerializeField] public Sprite Tzeentch;
+    [SerializeField] public Sprite Nurgle;
+    [SerializeField] public Sprite Slaanesh;
 
     [SerializeField] private MainMenu mainMenu;
     [SerializeField] private GameObject figureContainer;
@@ -69,33 +72,35 @@ public class Board : MonoBehaviour
 
     private void SpawnRoyalRow(int row, Player player)
     {
-        Spawn(rook, row, 0, player);
-        Spawn(knight, row, 1, player);
-        Spawn(bishop, row, 2, player);
-        Spawn(queen, row, 3, player);
-        Spawn(king, row, 4, player);
-        Spawn(bishop, row, 5, player);
-        Spawn(knight, row, 6, player);
-        Spawn(rook, row, 7, player);
+        Spawn(Rook, row, 0, player);
+        Spawn(Knight, row, 1, player);
+        Spawn(Bishop, row, 2, player);
+        Spawn(Queen, row, 3, player);
+        Spawn(King, row, 4, player);
+        Spawn(Bishop, row, 5, player);
+        Spawn(Knight, row, 6, player);
+        Spawn(Rook, row, 7, player);
     }
 
     private void SpawnPawnRow(int row, Player player)
     {
         for (int i = 0; i < Width; i++)
         {
-            Spawn(pawn, row, i, player);
+            Spawn(Pawn, row, i, player);
         }
     }
 
     private SfxPlayer SfxPlayer { get { return FindObjectOfType<SfxPlayer>(); } }
 
-    private void Spawn(ChessFigure figure, int row, int column, Player player)
+    public void Spawn(ChessFigure figure, int row, int column, Player player)
     {
         var cell = cells[column, row];
         var go = Instantiate(figure, figureContainer.transform);
         cell.Figure = go;
+        figure.GetComponent<Image>().enabled = false;
         player.AddActiveFigure(go);
         go.Player = player;
+        go.IsInteractable = false;
         go.DragStarted += () => Figure_DragStarted(go);
         go.DragEnded += () => Figure_DragEnded(go);
     }
@@ -111,7 +116,7 @@ public class Board : MonoBehaviour
         }
 
         Move(figure, targetCell);
-        StartCoroutine(StartNextTurn(OppositePlayer(figure)));
+        StartCoroutine(StartNextTurn(Opponent(figure)));
     }
 
     private void Move(ChessFigure figure, BoardCell targetCell)
@@ -146,7 +151,7 @@ public class Board : MonoBehaviour
 
         if (pawn != null && pawn.FinishRow == targetCell.Position.y)
         {
-            Spawn(queen, targetCell.Position.y, targetCell.Position.x, pawn.Player);
+            Spawn(Queen, targetCell.Position.y, targetCell.Position.x, pawn.Player);
             pawn.Player.RemoveActiveFigure(pawn);
             Destroy(figure.gameObject);
         }
@@ -192,7 +197,7 @@ public class Board : MonoBehaviour
         }
     }
 
-    private static readonly System.Random random = new System.Random();
+    private static readonly System.Random Random = new System.Random();
 
     private static void Shuffle<T>(IList<T> list)
     {
@@ -200,7 +205,7 @@ public class Board : MonoBehaviour
         while (n > 1)
         {
             n--;
-            var k = random.Next(n + 1);
+            var k = Random.Next(n + 1);
             var value = list[k];
             list[k] = list[n];
             list[n] = value;
@@ -216,7 +221,7 @@ public class Board : MonoBehaviour
     private IEnumerator StartNextTurn(Player player, bool isFirstTurn = false)
     {
         player.IsActive = false;
-        OppositePlayer(player).IsActive = false;
+        Opponent(player).IsActive = false;
         while (true)
         {
             if (isGameOverYet)
@@ -229,12 +234,17 @@ public class Board : MonoBehaviour
             if (!isFirstTurn)
             {
                 yield return new WaitForSeconds(0.6f);
-                yield return StartCoroutine(ShuffleFigures(OppositePlayer(player)));
+                var opponent = Opponent(player);
+                yield return StartCoroutine(ShuffleFigures(opponent));
+                yield return opponent.God.ApplyEffect(this, opponent.ActiveFigures, false);
+                yield return player.God.ApplyEffect(this, opponent.ActiveFigures, true);
             }
+
+            isFirstTurn = false;
             if (!player.IsBot) break;
             yield return StartCoroutine(FakeThinking(player));
             yield return StartCoroutine(MakeBotTurn(player));
-            player = OppositePlayer(player);
+            player = Opponent(player);
         }
 
         player.IsActive = true;
@@ -244,7 +254,7 @@ public class Board : MonoBehaviour
     {
         var thinking = player.King.Thinking;
         thinking.gameObject.SetActive(true);
-        foreach (var f in Easing.OutSquare(1, 0, 2 + Random.value))
+        foreach (var f in Easing.OutSquare(1, 0, 2 + UnityEngine.Random.value))
         {
             thinking.fillAmount = f;
             yield return null;
@@ -287,6 +297,22 @@ public class Board : MonoBehaviour
         }
     }
 
+    public IEnumerator ApplyGodEffect(God god, BoardCell cell, Action<BoardCell, Board> effect)
+    {
+        var delays = new[] { 0.3f, 0.2f, 0.2f, 0.1f, 0.1f, 0.1f, 0.05f, 0.05f, 0.05f };
+        foreach (var delay in delays)
+        {
+            cell.AffectingGod = god;
+            yield return new WaitForSeconds(delay);
+            cell.AffectingGod = null;
+            yield return new WaitForSeconds(delay);
+        }
+
+        cell.ShowSigil(god.Sigil(this));
+        SfxPlayer.PlayGodEffect();
+        effect(cell, this);
+    }
+
     private IEnumerator AnimateMovement(ChessFigure figure, BoardCell targetCell)
     {
         var currentCell = figure.Cell;
@@ -308,7 +334,7 @@ public class Board : MonoBehaviour
         return Vector3.Distance(figure.transform.position, cell.transform.position);
     }
 
-    private Player OppositePlayer(Player player)
+    public Player Opponent(Player player)
     {
         return firstPlayer == player ? secondPlayer : firstPlayer;
     }
@@ -403,6 +429,18 @@ public class Player
 
 public abstract class God
 {
+    protected List<ChessFigure> FiguresByRank(Board board)
+    {
+        return new List<ChessFigure>
+        {
+            board.Pawn,
+            board.Knight,
+            board.Bishop,
+            board.Rook,
+            board.Queen
+        };
+    }
+
     public abstract Color Color { get; }
 
     public static implicit operator God(GodName name)
@@ -421,6 +459,56 @@ public abstract class God
                 throw new ArgumentOutOfRangeException("name", name, null);
         }
     }
+
+    public IEnumerator ApplyEffect(Board board, IEnumerable<ChessFigure> figures, bool isEnemy)
+    {
+        var chance = ProcChance(isEnemy);
+        if (UnityEngine.Random.value > chance)
+        {
+            yield break;
+        }
+
+        var exceptKing = figures.Where(f => !(f is King)).ToList();
+        Shuffle(exceptKing);
+        var figure = exceptKing.First();
+        yield return board.StartCoroutine(board.ApplyGodEffect(this, figure.Cell, ApplyEffect));
+    }
+
+    protected abstract void ApplyEffect(BoardCell cell, Board board);
+
+    protected abstract float ProcChance(bool isEnemy);
+
+    private static readonly System.Random Random = new System.Random();
+
+    private static void Shuffle<T>(IList<T> list)
+    {
+        var n = list.Count;
+        while (n > 1)
+        {
+            n--;
+            var k = Random.Next(n + 1);
+            var value = list[k];
+            list[k] = list[n];
+            list[n] = value;
+        }
+    }
+
+    public Color CellColor(BoardCell cell)
+    {
+        if (cell.IsDark)
+        {
+            return Color.gray * Color;
+        }
+
+        float h, s, v;
+        Color.RGBToHSV(Color, out h, out s, out v);
+        s *= 0.75f;
+        return Color.HSVToRGB(h, s, v);
+    }
+
+    public abstract Sprite Sigil(Board board);
+
+    public abstract string Description { get; }
 }
 
 public class Khorne : God
@@ -428,6 +516,29 @@ public class Khorne : God
     public override Color Color
     {
         get { return Color.red; }
+    }
+
+    protected override void ApplyEffect(BoardCell cell, Board board)
+    {
+        var figure = cell.Figure;
+        cell.Figure = null;
+        figure.Player.AddDeadFigure(figure);
+        Object.Destroy(figure.gameObject);
+    }
+
+    protected override float ProcChance(bool isEnemy)
+    {
+        return isEnemy ? 0.4f : 0.1f;
+    }
+
+    public override Sprite Sigil(Board board)
+    {
+        return board.Khorne;
+    }
+
+    public override string Description
+    {
+        get { return "Occasionally destroys figures"; }
     }
 }
 
@@ -437,6 +548,39 @@ public class Nurgle : God
     {
         get { return Color.green; }
     }
+
+    protected override void ApplyEffect(BoardCell cell, Board board)
+    {
+        var figure = cell.Figure;
+        var figuresByRank = FiguresByRank(board);
+        var index = figuresByRank
+            .Select(f => f.GetType())
+            .ToList()
+            .IndexOf(figure.GetType());
+        if (index == 0)
+        {
+            return;
+        }
+
+        figure.Player.RemoveActiveFigure(figure);
+        board.Spawn(figuresByRank[index - 1], cell.Position.y, cell.Position.x, figure.Player);
+        Object.Destroy(figure.gameObject);
+    }
+
+    protected override float ProcChance(bool isEnemy)
+    {
+        return isEnemy ? 0.4f : 0.1f;
+    }
+
+    public override Sprite Sigil(Board board)
+    {
+        return board.Nurgle;
+    }
+
+    public override string Description
+    {
+        get { return "Occasionally downgrades figures"; }
+    }
 }
 
 public class Tzeentch : God
@@ -445,6 +589,35 @@ public class Tzeentch : God
     {
         get { return Color.cyan; }
     }
+
+    protected override void ApplyEffect(BoardCell cell, Board board)
+    {
+        var figure = cell.Figure;
+        var figuresByRank = FiguresByRank(board);
+        var index = figuresByRank
+            .Select(f => f.GetType())
+            .ToList()
+            .IndexOf(figure.GetType());
+
+        figure.Player.RemoveActiveFigure(figure);
+        board.Spawn(figuresByRank[index], cell.Position.y, cell.Position.x, board.Opponent(figure.Player));
+        Object.Destroy(figure.gameObject);
+    }
+
+    protected override float ProcChance(bool isEnemy)
+    {
+        return isEnemy ? 0.4f : 0.1f;
+    }
+
+    public override Sprite Sigil(Board board)
+    {
+        return board.Tzeentch;
+    }
+
+    public override string Description
+    {
+        get { return "Occasionally betrays figures"; }
+    }
 }
 
 public class Slaanesh : God
@@ -452,5 +625,38 @@ public class Slaanesh : God
     public override Color Color
     {
         get { return Color.magenta; }
+    }
+
+    protected override void ApplyEffect(BoardCell cell, Board board)
+    {
+        var figure = cell.Figure;
+        var figuresByRank = FiguresByRank(board);
+        var index = figuresByRank
+            .Select(f => f.GetType())
+            .ToList()
+            .IndexOf(figure.GetType());
+        if (index == figuresByRank.Count - 1)
+        {
+            return;
+        }
+
+        figure.Player.RemoveActiveFigure(figure);
+        board.Spawn(figuresByRank[index + 1], cell.Position.y, cell.Position.x, figure.Player);
+        Object.Destroy(figure.gameObject);
+    }
+
+    protected override float ProcChance(bool isEnemy)
+    {
+        return isEnemy ? 0.1f : 0.4f;
+    }
+
+    public override Sprite Sigil(Board board)
+    {
+        return board.Slaanesh;
+    }
+
+    public override string Description
+    {
+        get { return "Occasionally upgrades figures"; }
     }
 }
