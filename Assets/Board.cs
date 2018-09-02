@@ -134,13 +134,27 @@ public class Board : MonoBehaviour
             {
                 SfxPlayer.PlayBotKill();
             }
+
             Destroy(targetFigure.gameObject);
         }
         else
         {
             SfxPlayer.PlayDragStopped();
         }
-        targetCell.Figure = figure;
+
+        var pawn = figure as Pawn;
+
+        if (pawn != null && pawn.FinishRow == targetCell.Position.y)
+        {
+            Spawn(queen, targetCell.Position.y, targetCell.Position.x, pawn.Player);
+            pawn.Player.RemoveActiveFigure(pawn);
+            Destroy(figure.gameObject);
+        }
+        else
+        {
+            targetCell.Figure = figure;
+
+        }
     }
 
     private IEnumerator ShuffleFigures(Player player)
@@ -334,6 +348,11 @@ public class Player
     public void AddActiveFigure(ChessFigure figure)
     {
         activeFigures.Add(figure);
+    }
+
+    public void RemoveActiveFigure(ChessFigure figure)
+    {
+        activeFigures.Remove(figure);
     }
 
     public IEnumerable<ChessFigure> ActiveFigures

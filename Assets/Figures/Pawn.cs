@@ -6,8 +6,6 @@ namespace Figures
 {
     public class Pawn : ChessFigure
     {
-        private int value;
-
         public override IEnumerable<BoardCell> MovementCells
         {
             get
@@ -44,6 +42,11 @@ namespace Figures
                 }
                 return movementCells;
             }
+        }
+
+        public int FinishRow
+        {
+            get { return Player.IsFirst ? 7 : 0; }
         }
 
         public override int Value
